@@ -40,15 +40,20 @@ class Vision:
     def _init_kalman_filter(self):
         """Inicializa el filtro de Kalman"""
         dt = 1/60
+        #matriz de transicion de estado
         F = np.array([[1, 0, dt, 0],
                       [0, 1, 0, dt],
                       [0, 0, 1, 0],
                       [0, 0, 0, 1]])
+        # Matriz observacion, descarta velocidad al comparar con datos reales del sensor
         H = np.array([[1, 0, 0, 0],
                       [0, 1, 0, 0]])
-        P = np.eye(4) * 200
-        Q = np.eye(4) * 5e-3
-        R = np.eye(2) * 5e-2
+        #valor de incertidumbre: A mayor P menos se confia en el modelo
+        P = np.eye(4) * 300
+        # Confianza en la prediccion: a mayor Q el filtro permite cambios bruscos, a menor Q el filtro suaviza los movimientos (si estos son mas predecibles)
+        Q = np.eye(4) * 1e-3
+        #Confianza en datos del sensor: Aumentar R si se desconfia del sensor
+        R = np.eye(2) * 1e-1
         return {"F": F, "H": H, "P": P, "Q": Q, "R": R, "x": np.zeros((4, 1))}
     
     def _kalman_predict(self, kf):
@@ -56,10 +61,10 @@ class Vision:
         kf["P"] = np.dot(np.dot(kf["F"], kf["P"]), kf["F"].T) + kf["Q"]
     
     def _kalman_update(self, kf, measurement):
-        z = np.array(measurement).reshape(2, 1)
-        y = z - np.dot(kf["H"], kf["x"])
-        S = np.dot(kf["H"], np.dot(kf["P"], kf["H"].T)) + kf["R"]
-        K = np.dot(np.dot(kf["P"], kf["H"].T), np.linalg.inv(S))
+        z = np.array(measurement).reshape(2, 1) # medicion real
+        y = z - np.dot(kf["H"], kf["x"]) #error
+        S = np.dot(kf["H"], np.dot(kf["P"], kf["H"].T)) + kf["R"] #incertidumbre total
+        K = np.dot(np.dot(kf["P"], kf["H"].T), np.linalg.inv(S)) #ganancia de kalman
         kf["x"] += np.dot(K, y)
         I = np.eye(kf["P"].shape[0])
         kf["P"] = np.dot(I - np.dot(K, kf["H"]), kf["P"])
